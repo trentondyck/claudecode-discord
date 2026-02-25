@@ -13,36 +13,60 @@ set NEED_LOGIN=0
 echo [1/4] Checking Node.js...
 where node >nul 2>&1
 if %errorlevel% neq 0 (
-    echo   Node.js not found. Installing via winget...
+    echo   Node.js not found. Installing...
     where winget >nul 2>&1
-    if %errorlevel% neq 0 (
-        echo   X winget not available.
+    if %errorlevel% equ 0 (
+        winget install OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements
+        echo   ! Node.js installed. Please restart this script in a new terminal.
+        pause
+        exit /b 0
+    )
+    echo   winget not available. Downloading Node.js installer...
+    set "NODE_MSI=%TEMP%\node-install.msi"
+    powershell -Command "Invoke-WebRequest -Uri 'https://nodejs.org/dist/v22.14.0/node-v22.14.0-x64.msi' -OutFile '!NODE_MSI!'" 2>nul
+    if exist "!NODE_MSI!" (
+        echo   Installing Node.js...
+        msiexec /i "!NODE_MSI!" /qn
+        del "!NODE_MSI!" >nul 2>&1
+        echo   ! Node.js installed. Please restart this script in a new terminal.
+        pause
+        exit /b 0
+    ) else (
+        echo   X Download failed.
         echo   Download Node.js manually from https://nodejs.org
         echo   After installing, restart this script.
         pause
         exit /b 1
     )
-    winget install OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements
-    echo   ! Node.js installed. Please restart this script in a new terminal.
-    pause
-    exit /b 0
 )
 
 for /f "tokens=1 delims=." %%a in ('node -v') do set NODE_MAJOR=%%a
 set NODE_MAJOR=%NODE_MAJOR:v=%
 if %NODE_MAJOR% lss 20 (
     echo   ! Node.js 20+ required. Current: v%NODE_MAJOR%
-    echo   Upgrading via winget...
+    echo   Upgrading...
     where winget >nul 2>&1
-    if %errorlevel% neq 0 (
-        echo   X winget not available. Download from https://nodejs.org
+    if %errorlevel% equ 0 (
+        winget upgrade OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements
+        echo   ! Updated. Please restart this script in a new terminal.
+        pause
+        exit /b 0
+    )
+    echo   winget not available. Downloading Node.js installer...
+    set "NODE_MSI=%TEMP%\node-install.msi"
+    powershell -Command "Invoke-WebRequest -Uri 'https://nodejs.org/dist/v22.14.0/node-v22.14.0-x64.msi' -OutFile '!NODE_MSI!'" 2>nul
+    if exist "!NODE_MSI!" (
+        echo   Installing Node.js...
+        msiexec /i "!NODE_MSI!" /qn
+        del "!NODE_MSI!" >nul 2>&1
+        echo   ! Updated. Please restart this script in a new terminal.
+        pause
+        exit /b 0
+    ) else (
+        echo   X Download failed. Download from https://nodejs.org
         pause
         exit /b 1
     )
-    winget upgrade OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements
-    echo   ! Updated. Please restart this script in a new terminal.
-    pause
-    exit /b 0
 )
 
 for /f "tokens=*" %%v in ('node -v') do echo   Found Node.js %%v

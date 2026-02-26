@@ -122,9 +122,9 @@ def check_for_updates():
 
 def perform_update(icon, item):
     global update_available, current_version
-    was_running = is_running()
-    if was_running:
-        subprocess.run(["systemctl", "--user", "stop", SERVICE_NAME], capture_output=True)
+    # Stop bot before update
+    subprocess.run(["systemctl", "--user", "stop", SERVICE_NAME], capture_output=True)
+    time.sleep(1)
 
     subprocess.run(["git", "pull", "origin", "main", "--tags"], cwd=BOT_DIR)
     subprocess.run(["npm", "install"], cwd=BOT_DIR)
@@ -137,8 +137,9 @@ def perform_update(icon, item):
     current_version = get_version()
     update_available = False
 
-    if was_running:
-        subprocess.run(["systemctl", "--user", "start", SERVICE_NAME], capture_output=True)
+    # Always restart bot after update
+    subprocess.run(["systemctl", "--user", "enable", SERVICE_NAME], capture_output=True)
+    subprocess.run(["systemctl", "--user", "start", SERVICE_NAME], capture_output=True)
 
     time.sleep(2)
     update_icon(icon)

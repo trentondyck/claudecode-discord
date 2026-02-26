@@ -187,14 +187,9 @@ class ClaudeBotTray : Form
                 "@echo off\r\n" +
                 "chcp 65001 >nul 2>&1\r\n" +
                 "setlocal enabledelayedexpansion\r\n" +
-                ":: Wait for tray process to exit\r\n" +
-                "timeout /t 2 /nobreak >nul\r\n" +
-                ":WAITLOOP\r\n" +
-                "tasklist /fi \"imagename eq ClaudeBotTray.exe\" 2>nul | findstr /i \"ClaudeBotTray.exe\" >nul 2>&1\r\n" +
-                "if not errorlevel 1 (\r\n" +
-                "    timeout /t 1 /nobreak >nul\r\n" +
-                "    goto WAITLOOP\r\n" +
-                ")\r\n" +
+                ":: Kill all tray processes and wait\r\n" +
+                "taskkill /f /im ClaudeBotTray.exe >nul 2>&1\r\n" +
+                "timeout /t 3 /nobreak >nul\r\n" +
                 ":: Delete old exe\r\n" +
                 "del \"" + trayExe + "\" >nul 2>&1\r\n" +
                 ":: Find csc.exe\r\n" +
@@ -218,7 +213,7 @@ class ClaudeBotTray : Form
                 batContent +=
                     "timeout /t 2 /nobreak >nul\r\n" +
                     "echo Set ws = CreateObject(\"WScript.Shell\") > \"" + botDir + "\\.bot-start.vbs\"\r\n" +
-                    "echo ws.Run \"cmd /c cd /d " + botDir + " ^& echo running^> .bot.lock ^& node dist/index.js ^& del .bot.lock\", 0, False >> \"" + botDir + "\\.bot-start.vbs\"\r\n" +
+                    "echo ws.Run \"cmd /c cd /d " + botDir + " ^& echo running^> .bot.lock ^& node dist/index.js ^>^> bot.log 2^>^&1 ^& del .bot.lock\", 0, False >> \"" + botDir + "\\.bot-start.vbs\"\r\n" +
                     "wscript \"" + botDir + "\\.bot-start.vbs\"\r\n" +
                     "del \"" + botDir + "\\.bot-start.vbs\" >nul 2>&1\r\n";
             }
@@ -405,7 +400,7 @@ class ClaudeBotTray : Form
         KillBot();
         // Run bot hidden via vbs
         string vbs = Path.Combine(botDir, ".bot-start.vbs");
-        string cmd = "cmd /c cd /d " + botDir + " & echo running> .bot.lock & node dist/index.js & del .bot.lock";
+        string cmd = "cmd /c cd /d " + botDir + " & echo running> .bot.lock & node dist/index.js >> bot.log 2>&1 & del .bot.lock";
         File.WriteAllText(vbs, "Set ws = CreateObject(\"WScript.Shell\")\nws.Run \"" + cmd.Replace("\"", "\"\"") + "\", 0, False\n");
         Process.Start("wscript", "\"" + vbs + "\"");
         // Wait for bot to start, then show notification
@@ -521,8 +516,9 @@ class ClaudeBotTray : Form
     private void OpenLog(object sender, EventArgs e)
     {
         string logPath = Path.Combine(botDir, "bot.log");
-        if (File.Exists(logPath))
-            Process.Start("notepad.exe", logPath);
+        if (!File.Exists(logPath))
+            File.Create(logPath).Close();
+        Process.Start("notepad.exe", "\"" + logPath + "\"");
     }
 
     private void OpenFolder(object sender, EventArgs e)
@@ -1073,9 +1069,10 @@ class ClaudeBotTray : Form
         {
             if (proc.Id != myPid)
             {
-                try { proc.Kill(); } catch { }
+                try { proc.Kill(); proc.WaitForExit(3000); } catch { }
             }
         }
+        Thread.Sleep(500);
 
         // Single instance check using named Mutex
         bool createdNew;

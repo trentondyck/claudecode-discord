@@ -162,8 +162,17 @@ EOF
 
 systemctl --user daemon-reload
 
-# Start tray app (shows settings dialog if .env not configured)
+is_env_configured() {
+    [ -f "$ENV_FILE" ] || return 1
+    local token=$(grep "^DISCORD_BOT_TOKEN=" "$ENV_FILE" 2>/dev/null | cut -d= -f2)
+    local guild=$(grep "^DISCORD_GUILD_ID=" "$ENV_FILE" 2>/dev/null | cut -d= -f2)
+    [ -n "$token" ] && [ "$token" != "your_bot_token_here" ] && \
+    [ -n "$guild" ] && [ "$guild" != "your_server_id_here" ]
+}
+
+# GUI mode: tray manages bot lifecycle / Headless: start bot directly
 TRAY_SCRIPT="$SCRIPT_DIR/tray/claude_tray.py"
+HAS_GUI=false
 if [ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]; then
     if [ -f "$TRAY_SCRIPT" ] && command -v python3 &>/dev/null; then
         # pystray + Pillow 설치 확인 및 자동 설치
@@ -187,25 +196,22 @@ if [ -n "$DISPLAY" ] || [ -n "$WAYLAND_DISPLAY" ]; then
         if python3 -c "import pystray; from PIL import Image" 2>/dev/null; then
             pkill -f "claude_tray.py" 2>/dev/null
             nohup python3 "$TRAY_SCRIPT" > /dev/null 2>&1 &
+            HAS_GUI=true
+            echo "🔔 Tray started (manages bot lifecycle)"
         fi
     fi
 fi
 
-# Start bot if .env is properly configured, otherwise let tray handle setup
-is_env_configured() {
-    [ -f "$ENV_FILE" ] || return 1
-    local token=$(grep "^DISCORD_BOT_TOKEN=" "$ENV_FILE" 2>/dev/null | cut -d= -f2)
-    local guild=$(grep "^DISCORD_GUILD_ID=" "$ENV_FILE" 2>/dev/null | cut -d= -f2)
-    [ -n "$token" ] && [ "$token" != "your_bot_token_here" ] && \
-    [ -n "$guild" ] && [ "$guild" != "your_server_id_here" ]
-}
-
-if is_env_configured; then
-    loginctl enable-linger 2>/dev/null
-    systemctl --user start "$SERVICE_NAME"
-    echo "🟢 Bot started in background"
-else
-    echo "⚙️ .env not configured. Please configure settings from the tray icon."
+if [ "$HAS_GUI" = false ]; then
+    # Headless: no tray available, start bot directly
+    if is_env_configured; then
+        systemctl --user enable "$SERVICE_NAME" 2>/dev/null
+        loginctl enable-linger 2>/dev/null
+        systemctl --user start "$SERVICE_NAME"
+        echo "🟢 Bot started in background (headless mode)"
+    else
+        echo "⚙️ .env not configured. Edit .env manually and run again."
+    fi
 fi
 
 # Create desktop shortcut

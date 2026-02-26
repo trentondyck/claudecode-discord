@@ -394,23 +394,38 @@ def _edit_settings_gtk(icon=None):
         icon.menu = create_menu()
 
 
+AUTOSTART_DIR = os.path.join(os.path.expanduser("~"), ".config", "autostart")
+AUTOSTART_FILE = os.path.join(AUTOSTART_DIR, "claude-discord-tray.desktop")
+
+
 def is_autostart_enabled():
-    result = subprocess.run(
-        ["systemctl", "--user", "is-enabled", SERVICE_NAME],
-        capture_output=True, text=True
-    )
-    return result.stdout.strip() == "enabled"
+    return os.path.exists(AUTOSTART_FILE)
 
 
 def toggle_autostart(icon, item):
     if is_autostart_enabled():
-        subprocess.run(["systemctl", "--user", "disable", SERVICE_NAME], capture_output=True)
+        try:
+            os.remove(AUTOSTART_FILE)
+        except OSError:
+            pass
     else:
-        # Regenerate service file to ensure network-wait fix is applied
+        os.makedirs(AUTOSTART_DIR, exist_ok=True)
+        tray_script = os.path.join(BOT_DIR, "tray", "claude_tray.py")
+        tray_icon = os.path.join(BOT_DIR, "docs", "icon-rounded.png")
+        with open(AUTOSTART_FILE, "w") as f:
+            f.write(f"""[Desktop Entry]
+Type=Application
+Name=Claude Discord Bot Tray
+Comment=Claude Discord Bot system tray manager
+Exec=/bin/bash -c 'sleep 3 && python3 {tray_script}'
+Icon={tray_icon}
+Terminal=false
+X-GNOME-Autostart-enabled=true
+StartupNotify=false
+""")
+        # Ensure systemd service file exists for bot management
         start_script = os.path.join(BOT_DIR, "linux-start.sh")
         subprocess.run(["/bin/bash", start_script, "--regen-service"], capture_output=True)
-        subprocess.run(["systemctl", "--user", "enable", SERVICE_NAME], capture_output=True)
-        # Enable lingering so user services start at boot (before login)
         subprocess.run(["loginctl", "enable-linger"], capture_output=True)
     icon.menu = create_menu()
 

@@ -41,8 +41,27 @@ fi
 
 # --fg: 포그라운드 실행 (launchd 없이 직접 실행)
 if [ "$1" = "--fg" ]; then
+    # Try to find node: nvm → homebrew → common paths
     export NVM_DIR="$HOME/.nvm"
     [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
+    if ! command -v node &>/dev/null; then
+        # Try Homebrew paths (Apple Silicon + Intel)
+        for p in /opt/homebrew/bin /usr/local/bin "$HOME/.nodenv/shims" "$HOME/.fnm/aliases/default/bin"; do
+            if [ -x "$p/node" ]; then
+                export PATH="$p:$PATH"
+                break
+            fi
+        done
+    fi
+
+    if ! command -v node &>/dev/null; then
+        echo "[claude-bot] ERROR: node not found. Please install Node.js (nvm, homebrew, or nodejs.org)"
+        echo "[claude-bot] Install with: brew install node  OR  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash"
+        exit 1
+    fi
+
+    echo "[claude-bot] Using node: $(which node) ($(node --version))"
     cd "$SCRIPT_DIR"
 
     VERSION=$(git describe --tags --always 2>/dev/null || echo "unknown")

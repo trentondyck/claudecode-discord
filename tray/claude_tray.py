@@ -139,6 +139,8 @@ def perform_update(icon, item):
     time.sleep(2)
     update_icon(icon)
     icon.menu = create_menu()
+    icon.notify(L("Updated to version: ", "업데이트 완료: ") + current_version,
+                L("Update Complete", "업데이트 완료"))
 
 
 def create_icon(color):
@@ -156,6 +158,10 @@ def start_bot(icon, item):
     time.sleep(2)
     update_icon(icon)
     icon.menu = create_menu()
+    if is_running():
+        icon.notify(L("Bot is running. Click tray icon to manage.",
+                       "봇이 실행 중입니다. 트레이 아이콘을 클릭하여 관리하세요."),
+                    L("Claude Discord Bot Started", "Claude Discord Bot 시작됨"))
 
 
 def stop_bot(icon, item):
@@ -424,10 +430,14 @@ def update_icon(icon):
 
 def manual_check_update(icon, item):
     check_for_updates()
+    icon.menu = create_menu()
     if update_available:
-        icon.menu = create_menu()
+        icon.notify(L("A new update is available. Click 'Update' in the menu.",
+                       "새 업데이트가 있습니다. 메뉴에서 '업데이트'를 클릭하세요."),
+                    L("Update Available", "업데이트 가능"))
     else:
-        icon.notify(L("No updates available.", "업데이트가 없습니다."), L("Up to Date", "최신 버전"))
+        icon.notify(L("No updates available.", "업데이트가 없습니다."),
+                    L("Up to Date", "최신 버전"))
 
 
 def create_menu():

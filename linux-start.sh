@@ -55,10 +55,19 @@ fi
 
 # --fg: Foreground mode
 if [ "$1" = "--fg" ]; then
-    # nvm 환경 로드
+    # nvm 환경 로드 (systemd에서 실행 시 필요)
     if [ -s "$HOME/.nvm/nvm.sh" ]; then
         export NVM_DIR="$HOME/.nvm"
         . "$NVM_DIR/nvm.sh"
+    fi
+    if command -v fnm &>/dev/null; then
+        eval "$(fnm env)" 2>/dev/null
+    fi
+    # Re-find node after loading nvm/fnm
+    NODE_BIN=$(which node 2>/dev/null)
+    if [ -z "$NODE_BIN" ]; then
+        echo "[claude-bot] ❌ Node.js not found in foreground mode"
+        exit 1
     fi
     cd "$SCRIPT_DIR"
 
@@ -108,6 +117,9 @@ Wants=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=$SCRIPT_DIR
+Environment=HOME=$HOME
+Environment=PATH=$PATH
+Environment=NVM_DIR=${NVM_DIR:-$HOME/.nvm}
 ExecStart=/bin/bash $SCRIPT_DIR/linux-start.sh --fg
 Restart=always
 RestartSec=10

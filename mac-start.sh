@@ -14,6 +14,9 @@ PLIST_SRC="$SCRIPT_DIR/$PLIST_NAME"
 PLIST_DST="$HOME/Library/LaunchAgents/$PLIST_NAME"
 LABEL="com.claude-discord"
 MENUBAR="$SCRIPT_DIR/menubar/ClaudeBotMenu"
+MENUBAR_PLIST_NAME="com.claude-discord-menubar.plist"
+MENUBAR_PLIST_DST="$HOME/Library/LaunchAgents/$MENUBAR_PLIST_NAME"
+MENUBAR_LABEL="com.claude-discord-menubar"
 
 # --stop: 중지
 if [ "$1" = "--stop" ]; then
@@ -24,6 +27,7 @@ if [ "$1" = "--stop" ]; then
         echo "Bot is not running"
     fi
     # Stop menu bar app too
+    launchctl unload "$MENUBAR_PLIST_DST" 2>/dev/null
     pkill -f "ClaudeBotMenu" 2>/dev/null
     exit 0
 fi
@@ -141,10 +145,8 @@ generate_plist() {
     </array>
     <key>WorkingDirectory</key>
     <string>$SCRIPT_DIR</string>
-    <key>RunAtLoad</key>
-    <true/>
     <key>KeepAlive</key>
-    <true/>
+    <false/>
     <key>ThrottleInterval</key>
     <integer>10</integer>
     <key>StandardOutPath</key>
@@ -172,6 +174,37 @@ if is_env_configured; then
 else
     echo "⚙️ .env not found. Please configure settings from the menu bar icon."
 fi
+
+# Register menu bar app autostart (launches menu bar on login → menu bar manages bot lifecycle)
+if [ -f "$MENUBAR" ]; then
+    mkdir -p "$HOME/Library/LaunchAgents"
+    launchctl unload "$MENUBAR_PLIST_DST" 2>/dev/null
+    cat > "$MENUBAR_PLIST_DST" <<MBEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>$MENUBAR_LABEL</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$MENUBAR</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>$SCRIPT_DIR</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/dev/null</string>
+    <key>StandardErrorPath</key>
+    <string>/dev/null</string>
+</dict>
+</plist>
+MBEOF
+    launchctl load "$MENUBAR_PLIST_DST"
+    echo "🔔 Menu bar autostart registered"
+fi
+
 echo "   Stop:   ./mac-start.sh --stop"
 echo "   Status: ./mac-start.sh --status"
 echo "   Log:    tail -f bot.log"

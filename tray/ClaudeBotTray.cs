@@ -392,18 +392,23 @@ class ClaudeBotTray : Form
         string claudeBotExe = Path.Combine(botDir, "ClaudeBot.exe");
         try
         {
-            string nodeExe = RunCmdOutput("where", "node").Trim().Split('\n')[0].Trim();
-            if (File.Exists(nodeExe) && (!File.Exists(claudeBotExe) ||
-                File.GetLastWriteTime(nodeExe) > File.GetLastWriteTime(claudeBotExe)))
+            string whereOut = RunCmdOutput("where", "node").Trim();
+            string nodeExe = whereOut.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)[0].Trim();
+            if (File.Exists(nodeExe))
             {
-                File.Copy(nodeExe, claudeBotExe, true);
+                if (!File.Exists(claudeBotExe) ||
+                    File.GetLastWriteTime(nodeExe) > File.GetLastWriteTime(claudeBotExe))
+                {
+                    File.Copy(nodeExe, claudeBotExe, true);
+                }
             }
         }
         catch { }
-        string exeName = File.Exists(claudeBotExe) ? "ClaudeBot.exe" : "node";
+        // Use absolute path to ClaudeBot.exe so cmd can find it
+        string botExePath = File.Exists(claudeBotExe) ? "\"" + claudeBotExe + "\"" : "node";
         // Run bot hidden via vbs
         string vbs = Path.Combine(botDir, ".bot-start.vbs");
-        string cmd = "cmd /c cd /d " + botDir + " & echo running> .bot.lock & " + exeName + " dist/index.js >> bot.log 2>&1 & del .bot.lock";
+        string cmd = "cmd /c cd /d " + botDir + " & echo running> .bot.lock & " + botExePath + " dist/index.js >> bot.log 2>&1 & del .bot.lock";
         File.WriteAllText(vbs, "Set ws = CreateObject(\"WScript.Shell\")\nws.Run \"" + cmd.Replace("\"", "\"\"") + "\", 0, False\n");
         Process.Start("wscript", "\"" + vbs + "\"");
         // Wait for bot to start, then show notification
@@ -534,7 +539,7 @@ class ClaudeBotTray : Form
         {
             Text = L("Claude Discord Bot Settings", "Claude Discord Bot 설정"),
             Width = 500,
-            Height = 430,
+            Height = 460,
             StartPosition = FormStartPosition.CenterScreen,
             FormBorderStyle = FormBorderStyle.FixedDialog,
             MaximizeBox = false,
@@ -542,12 +547,12 @@ class ClaudeBotTray : Form
         };
 
         // Setup guide link
-        var linkLabel = new LinkLabel() { Text = L("Open Setup Guide", "설정 가이드 열기"), Left = 15, Top = 10, Width = 450 };
+        var linkLabel = new LinkLabel() { Text = L("Open Setup Guide", "설정 가이드 열기"), Left = 15, Top = 10, Width = 450, Height = 20 };
         linkLabel.LinkClicked += (s, ev) => { Process.Start("https://github.com/chadingTV/claudecode-discord/blob/main/SETUP.md"); };
         form.Controls.Add(linkLabel);
 
         // Issues link
-        var issueLabel = new LinkLabel() { Text = L("Bug Report / Feature Request (GitHub Issues)", "버그 신고 / 기능 요청 (GitHub Issues)"), Left = 15, Top = 28, Width = 450 };
+        var issueLabel = new LinkLabel() { Text = L("Bug Report / Feature Request (GitHub Issues)", "버그 신고 / 기능 요청 (GitHub Issues)"), Left = 15, Top = 32, Width = 450, Height = 20 };
         issueLabel.LinkClicked += (s, ev) => { Process.Start("https://github.com/chadingTV/claudecode-discord/issues"); };
         form.Controls.Add(issueLabel);
 
@@ -576,7 +581,7 @@ class ClaudeBotTray : Form
         };
 
         var textBoxes = new TextBox[fields.Length];
-        int y = 35;
+        int y = 58;
 
         for (int i = 0; i < fields.Length; i++)
         {
@@ -895,7 +900,12 @@ class ClaudeBotTray : Form
 
         // Settings button
         var settingsBtn = new Button() { Text = L("Settings...", "설정..."), Left = 25, Top = y, Width = btnWidth, Height = 40 };
-        settingsBtn.Click += (s, ev) => { controlPanel.Close(); OpenSettings(null, null); };
+        settingsBtn.Click += (s, ev) => {
+            OpenSettings(null, null);
+            // Refresh panel after settings change
+            UpdateStatus();
+            BuildMenu();
+        };
         controlPanel.Controls.Add(settingsBtn);
         y += 48;
 

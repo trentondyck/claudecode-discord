@@ -80,8 +80,8 @@ cd claudecode-discord
 
 | 플랫폼 | 가이드 |
 |--------|--------|
-| 🍎 **macOS / Linux** | **[SETUP.kr.md](SETUP.kr.md)** — 터미널 기반 설정, 메뉴바 / 트레이 앱 |
-| 🪟 **Windows** | **[SETUP-WINDOWS.kr.md](SETUP-WINDOWS.kr.md)** — GUI 설치, 시스템 트레이 + 컨트롤 패널, 바탕화면 바로가기 |
+| **macOS / Linux** | **[SETUP.kr.md](SETUP.kr.md)** — 터미널 기반 설정, 메뉴바 / 트레이 앱 |
+| **Windows**    | **[SETUP-WINDOWS.kr.md](SETUP-WINDOWS.kr.md)** — GUI 설치, 시스템 트레이 + 컨트롤 패널, 바탕화면 바로가기 |
 
 Windows 사용자: `install.bat` 하나로 모든 것이 자동 처리됩니다 — 의존성 설치, 빌드, 바탕화면 바로가기 생성, 시스템 트레이 GUI와 함께 봇 실행.
 

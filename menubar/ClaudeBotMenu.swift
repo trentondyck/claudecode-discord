@@ -1,6 +1,8 @@
 import Cocoa
 import ObjectiveC
 
+private var associatedFieldKey: UInt8 = 0
+
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem!
     private var contextMenu: NSMenu?
@@ -771,7 +773,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
                 browseBtn.target = self
                 browseBtn.action = #selector(browseFolderClicked(_:))
                 accessory.addSubview(browseBtn)
-                objc_setAssociatedObject(browseBtn, "targetField", input, .OBJC_ASSOCIATION_RETAIN)
+                objc_setAssociatedObject(browseBtn, &associatedFieldKey, input, .OBJC_ASSOCIATION_RETAIN)
             } else {
                 let input = NSTextField(frame: NSRect(x: 0, y: y, width: width, height: fieldHeight))
                 input.placeholderString = field.placeholder
@@ -862,7 +864,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panel.prompt = L("Select", "선택")
         panel.message = L("Select Base Project Directory", "기본 프로젝트 디렉토리 선택")
         if panel.runModal() == .OK, let url = panel.url {
-            if let field = objc_getAssociatedObject(sender, "targetField") as? NSTextField {
+            if let field = objc_getAssociatedObject(sender, &associatedFieldKey) as? NSTextField {
                 field.stringValue = url.path
             }
         }

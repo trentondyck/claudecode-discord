@@ -35,13 +35,11 @@ class ClaudeBotTray : Form
 
         trayIcon = new NotifyIcon();
         trayIcon.Visible = true;
-        // Left-click also shows menu
+        // Left-click opens control panel window
         trayIcon.MouseClick += (s, e) => {
             if (e.Button == MouseButtons.Left)
             {
-                var mi = typeof(NotifyIcon).GetMethod("ShowContextMenu",
-                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-                if (mi != null) mi.Invoke(trayIcon, null);
+                ShowControlPanel();
             }
         };
         UpdateStatus();
@@ -531,6 +529,123 @@ class ClaudeBotTray : Form
             env[key] = val;
         }
         return env;
+    }
+
+    private Form controlPanel = null;
+
+    private void ShowControlPanel()
+    {
+        // If already open, bring to front
+        if (controlPanel != null && !controlPanel.IsDisposed)
+        {
+            controlPanel.Activate();
+            return;
+        }
+
+        bool running = IsRunning();
+        bool hasEnv = File.Exists(envPath);
+
+        controlPanel = new Form()
+        {
+            Text = "Claude Discord Bot",
+            Width = 340,
+            Height = 380,
+            StartPosition = FormStartPosition.CenterScreen,
+            FormBorderStyle = FormBorderStyle.FixedDialog,
+            MaximizeBox = false,
+            MinimizeBox = false,
+        };
+
+        int y = 15;
+
+        // Status indicator
+        string statusText = !hasEnv ? "Setup Required" : (running ? "Running" : "Stopped");
+        Color statusColor = !hasEnv ? Color.Orange : (running ? Color.LimeGreen : Color.Red);
+        var statusPanel = new Panel() { Left = 15, Top = y, Width = 295, Height = 40, BackColor = Color.FromArgb(245, 245, 245) };
+        var statusDot = new Label() { Left = 10, Top = 10, Width = 20, Height = 20, Text = "" };
+        statusDot.Paint += (s, e) => {
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            e.Graphics.FillEllipse(new SolidBrush(statusColor), 2, 2, 14, 14);
+        };
+        statusPanel.Controls.Add(statusDot);
+        var statusLabel = new Label() { Left = 32, Top = 11, Width = 250, Height = 20, Text = statusText, Font = new Font(FontFamily.GenericSansSerif, 10, FontStyle.Bold) };
+        statusPanel.Controls.Add(statusLabel);
+        controlPanel.Controls.Add(statusPanel);
+        y += 50;
+
+        // Bot control buttons
+        if (hasEnv)
+        {
+            if (running)
+            {
+                var stopBtn = new Button() { Text = "Stop Bot", Left = 15, Top = y, Width = 140, Height = 32 };
+                stopBtn.Click += (s, ev) => { StopBot(null, null); controlPanel.Close(); };
+                controlPanel.Controls.Add(stopBtn);
+
+                var restartBtn = new Button() { Text = "Restart Bot", Left = 165, Top = y, Width = 140, Height = 32 };
+                restartBtn.Click += (s, ev) => { RestartBot(null, null); controlPanel.Close(); };
+                controlPanel.Controls.Add(restartBtn);
+            }
+            else
+            {
+                var startBtn = new Button() { Text = "Start Bot", Left = 15, Top = y, Width = 290, Height = 32 };
+                startBtn.Click += (s, ev) => { StartBot(null, null); controlPanel.Close(); };
+                controlPanel.Controls.Add(startBtn);
+            }
+            y += 42;
+        }
+
+        // Settings button
+        var settingsBtn = new Button() { Text = "Settings...", Left = 15, Top = y, Width = 290, Height = 32 };
+        settingsBtn.Click += (s, ev) => { controlPanel.Close(); OpenSettings(null, null); };
+        controlPanel.Controls.Add(settingsBtn);
+        y += 38;
+
+        if (hasEnv)
+        {
+            // View Log
+            var logBtn = new Button() { Text = "View Log", Left = 15, Top = y, Width = 140, Height = 32 };
+            logBtn.Click += (s, ev) => { OpenLog(null, null); };
+            controlPanel.Controls.Add(logBtn);
+
+            // Open Folder
+            var folderBtn = new Button() { Text = "Open Folder", Left = 165, Top = y, Width = 140, Height = 32 };
+            folderBtn.Click += (s, ev) => { OpenFolder(null, null); };
+            controlPanel.Controls.Add(folderBtn);
+            y += 38;
+        }
+
+        // Auto-start checkbox
+        var autoCheck = new CheckBox() { Text = "Auto Run on Startup", Left = 15, Top = y, Width = 290, Checked = IsAutoStartEnabled() };
+        autoCheck.CheckedChanged += (s, ev) => { ToggleAutoStart(null, null); };
+        controlPanel.Controls.Add(autoCheck);
+        y += 28;
+
+        // Version
+        var verLabel = new Label() { Text = "Version: " + currentVersion, Left = 15, Top = y, Width = 290, ForeColor = Color.Gray };
+        controlPanel.Controls.Add(verLabel);
+        y += 22;
+
+        // Update button
+        if (updateAvailable)
+        {
+            var updateBtn = new Button() { Text = "Update Available - Click to Update", Left = 15, Top = y, Width = 290, Height = 32, BackColor = Color.FromArgb(66, 133, 244), ForeColor = Color.White };
+            updateBtn.FlatStyle = FlatStyle.Flat;
+            updateBtn.Click += (s, ev) => { controlPanel.Close(); PerformUpdate(null, null); };
+            controlPanel.Controls.Add(updateBtn);
+            y += 38;
+        }
+
+        // Quit button
+        y += 5;
+        var quitBtn = new Button() { Text = "Quit", Left = 15, Top = y, Width = 290, Height = 32, ForeColor = Color.Gray };
+        quitBtn.Click += (s, ev) => { controlPanel.Close(); QuitAll(null, null); };
+        controlPanel.Controls.Add(quitBtn);
+        y += 42;
+
+        controlPanel.Height = y + 10;
+        controlPanel.ShowDialog();
+        controlPanel = null;
     }
 
     private void QuitAll(object sender, EventArgs e)

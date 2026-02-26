@@ -1,7 +1,11 @@
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const LANG_FILE = path.join(process.cwd(), ".tray-lang");
+// Use import.meta.url to reliably find the bot root directory
+// (dist/index.js -> dist/ -> botDir), regardless of process.cwd()
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const LANG_FILE = path.join(__dirname, "..", ".tray-lang");
 
 /**
  * Read the current language preference from .tray-lang file.

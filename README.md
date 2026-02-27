@@ -4,6 +4,8 @@
 
 # Claude Code Discord Controller
 
+[![CI](https://github.com/chadingTV/claudecode-discord/actions/workflows/ci.yml/badge.svg)](https://github.com/chadingTV/claudecode-discord/actions)
+
 Control Claude Code from your phone — a multi-machine agent hub via Discord.
 
 > **[Korean documentation (한국어)](docs/README.kr.md)**
@@ -12,17 +14,16 @@ Control Claude Code from your phone — a multi-machine agent hub via Discord.
 
 Anthropic's [Remote Control](https://code.claude.com/docs/en/remote-control) lets you view a running local session from your phone. This bot goes further — it's a **multi-machine agent hub** that runs as a daemon, creates new sessions on demand, and supports team collaboration.
 
-| | Official Remote Control | This Bot |
-|---|---|---|
-| **What it is** | Session viewer | Session controller |
-| **Starting a task** | Must open terminal first, then `claude remote-control` | Just send a message in Discord |
-| **Terminal dependency** | Closes terminal = session dies (10min timeout) | Bot daemon stays alive independently |
-| **New sessions from mobile** | Not possible (existing sessions only) | Send a message = new session |
-| **Concurrent sessions** | 1 per machine | Multiple (one per channel) |
-| **Multi-PC control** | Switch sessions manually per machine | One Discord server = all machines |
-| **Team collaboration** | Single user only | Team members can observe and approve |
-| **Notifications** | Must check the app manually | Discord push notifications |
-| **Dashboard** | None | Channel list = project dashboard |
+|                              | This Bot | Official Remote |
+|------------------------------|:--------:|:---------------:|
+| Start new session from phone | ✅       | ❌              |
+| Daemon (survives terminal close) | ✅   | ❌              |
+| Multi-machine hub            | ✅       | ❌              |
+| Concurrent sessions per machine | ✅    | ❌              |
+| Push notifications           | ✅       | ❌              |
+| Team collaboration           | ✅       | ❌              |
+| Native tray app (3 OS)       | ✅       | ❌              |
+| Zero open ports              | ✅       | ✅              |
 
 ### Multi-PC Hub
 

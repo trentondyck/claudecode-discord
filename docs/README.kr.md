@@ -4,23 +4,24 @@
 
 # Claude Code Discord Controller
 
+[![CI](https://github.com/chadingTV/claudecode-discord/actions/workflows/ci.yml/badge.svg)](https://github.com/chadingTV/claudecode-discord/actions)
+
 폰에서 Claude Code를 제어하세요 — Discord를 통한 멀티머신 에이전트 허브.
 
 ## 왜 이 봇인가? — 공식 Remote Control과의 차이
 
 Anthropic의 [Remote Control](https://code.claude.com/docs/en/remote-control)은 실행 중인 로컬 세션을 폰에서 이어보는 기능입니다. 이 봇은 그 이상 — 데몬으로 상주하며, 새 세션을 즉시 생성하고, 여러 PC를 하나의 Discord 서버에서 통합 관리하는 **멀티머신 에이전트 허브**입니다.
 
-| | 공식 Remote Control | 이 봇 |
-|---|---|---|
-| **본질** | 세션 뷰어 | 세션 컨트롤러 |
-| **작업 시작** | 터미널에서 `claude remote-control` 먼저 실행 필요 | Discord에 메시지만 보내면 됨 |
-| **터미널 종속** | 터미널 닫으면 세션 종료 (10분 타임아웃) | 봇 데몬이 독립적으로 상주 |
-| **모바일에서 새 작업** | 불가 (기존 세션만 이어감) | 메시지 보내면 바로 새 세션 |
-| **동시 세션** | 머신당 1개 | 채널별 병렬 실행 |
-| **멀티 PC** | 머신마다 세션 수동 전환 | Discord 서버 하나로 모든 머신 관리 |
-| **팀 협업** | 1인 전용 | 팀원이 같은 채널에서 관찰/승인 가능 |
-| **알림** | 앱을 직접 열어서 확인 | Discord 푸시 알림 |
-| **대시보드** | 없음 | 채널 목록 = 프로젝트 현황판 |
+|                              | 이 봇 | 공식 Remote |
+|------------------------------|:------:|:-----------:|
+| 모바일에서 새 세션 시작        | ✅     | ❌          |
+| 데몬 (터미널 닫아도 유지)      | ✅     | ❌          |
+| 멀티머신 통합 관리            | ✅     | ❌          |
+| 머신당 동시 세션              | ✅     | ❌          |
+| 푸시 알림                    | ✅     | ❌          |
+| 팀 협업                      | ✅     | ❌          |
+| 네이티브 트레이 앱 (3 OS)     | ✅     | ❌          |
+| 오픈 포트 없음               | ✅     | ✅          |
 
 ### 멀티 PC 허브
 

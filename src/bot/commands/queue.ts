@@ -60,13 +60,13 @@ export async function execute(
     const rows: ActionRowBuilder<ButtonBuilder>[] = [];
     const itemButtons: ButtonBuilder[] = queue.map((_, idx) =>
       new ButtonBuilder()
-        .setCustomId(`queue-remove-${channelId}:${idx}`)
+        .setCustomId(`queue-remove:${channelId}:${idx}`)
         .setLabel(`❌ ${idx + 1}`)
         .setStyle(ButtonStyle.Secondary)
     );
 
     const clearButton = new ButtonBuilder()
-      .setCustomId(`queue-clear-${channelId}`)
+      .setCustomId(`queue-clear:${channelId}`)
       .setLabel(L("Clear All", "모두 취소"))
       .setStyle(ButtonStyle.Danger);
 

@@ -134,7 +134,25 @@ class ClaudeBotTray : Form
 
     private bool IsRunning()
     {
-        return File.Exists(Path.Combine(botDir, ".bot.lock"));
+        // Check actual process instead of unreliable lock file
+        try
+        {
+            if (Process.GetProcessesByName("ClaudeBot").Length > 0) return true;
+        }
+        catch { }
+        try
+        {
+            var proc = new Process();
+            proc.StartInfo.FileName = "powershell";
+            proc.StartInfo.Arguments = "-NoProfile -Command \"if (Get-WmiObject Win32_Process | Where-Object { $_.CommandLine -like '*dist/index.js*' }) { exit 0 } else { exit 1 }\"";
+            proc.StartInfo.UseShellExecute = false;
+            proc.StartInfo.CreateNoWindow = true;
+            proc.Start();
+            proc.WaitForExit(5000);
+            if (proc.ExitCode == 0) return true;
+        }
+        catch { }
+        return false;
     }
 
     private string GetVersion()

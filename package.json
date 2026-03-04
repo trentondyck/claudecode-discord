@@ -12,19 +12,19 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.2.38",
-    "better-sqlite3": "^11.0.0",
-    "discord.js": "^14.19.3",
-    "dotenv": "^17.2.4",
-    "zod": "^4.0.0"
+    "@anthropic-ai/claude-agent-sdk": "0.2.38",
+    "better-sqlite3": "11.10.0",
+    "discord.js": "14.25.1",
+    "dotenv": "17.2.4",
+    "zod": "4.3.6"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.11",
-    "@types/node": "^22.0.0",
-    "tsup": "^8.0.0",
-    "tsx": "^4.0.0",
-    "typescript": "^5.5.0",
-    "vitest": "^2.0.0"
+    "@types/better-sqlite3": "7.6.13",
+    "@types/node": "22.19.10",
+    "tsup": "8.5.1",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3",
+    "vitest": "2.1.9"
   },
   "engines": {
     "node": ">=20.0.0"

@@ -86,7 +86,7 @@ echo ""
 
 # --- 3. npm install ---
 echo "[3/5] Installing project dependencies..."
-npm install
+npm ci
 echo "  ✅ Done"
 echo ""
 

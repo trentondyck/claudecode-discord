@@ -83,7 +83,7 @@ if [ "$1" = "--fg" ]; then
 
     if [ ! -d "node_modules" ]; then
         echo "[claude-bot] Installing dependencies..."
-        npm install
+        npm ci
     fi
 
     if [ ! -d "dist" ]; then

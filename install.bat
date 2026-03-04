@@ -100,9 +100,9 @@ echo.
 
 :: --- 3. npm install ---
 echo [3/4] Installing project dependencies...
-call npm install
+call npm ci
 if %errorlevel% neq 0 (
-    echo   X npm install failed.
+    echo   X npm ci failed.
     echo   If better-sqlite3 fails, install Visual Studio Build Tools:
     echo   winget install Microsoft.VisualStudio.2022.BuildTools
     echo   Then select "Desktop development with C++" workload.

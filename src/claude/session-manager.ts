@@ -1,6 +1,8 @@
 import { query, type Query } from "@anthropic-ai/claude-agent-sdk";
 import { randomUUID } from "node:crypto";
-import type { TextChannel } from "discord.js";
+import fs from "node:fs";
+import path from "node:path";
+import { AttachmentBuilder, type TextChannel } from "discord.js";
 import {
   upsertSession,
   updateSessionStatus,
@@ -48,6 +50,48 @@ const pendingQuestions = new Map<
 // Pending custom text inputs: channelId -> requestId
 const pendingCustomInputs = new Map<string, { requestId: string }>();
 
+const UPLOADABLE_EXTS = new Set([
+  ".apk", ".aab", ".ipa",
+  ".zip", ".gz", ".bz2", ".7z", ".rar",
+  ".exe", ".msi", ".dmg", ".appimage", ".deb", ".rpm",
+  ".pdf",
+  ".jar", ".war", ".ear",
+  ".mp4", ".mov", ".webm",
+]);
+const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25MB
+
+function extractUploadableFiles(text: string, projectPath: string): string[] {
+  // Match absolute paths that end with a known extension
+  const pathRegex = /(?:^|[\s`"'(])(\/([\w.\-]+\/)*([\w.\-]+\.\w+))/gm;
+  const found = new Set<string>();
+  let match;
+  while ((match = pathRegex.exec(text)) !== null) {
+    const filePath = match[1];
+    const ext = path.extname(filePath).toLowerCase();
+    if (!UPLOADABLE_EXTS.has(ext)) {
+      console.log(`[upload-scan] skipped (ext=${ext}): ${filePath}`);
+      continue;
+    }
+    if (!filePath.startsWith(projectPath)) {
+      console.log(`[upload-scan] skipped (outside project): ${filePath}`);
+      continue;
+    }
+    try {
+      const stat = fs.statSync(filePath);
+      if (stat.isFile() && stat.size <= MAX_UPLOAD_BYTES) {
+        console.log(`[upload-scan] queued for upload: ${filePath} (${(stat.size/1024/1024).toFixed(1)}MB)`);
+        found.add(filePath);
+      } else if (stat.size > MAX_UPLOAD_BYTES) {
+        console.log(`[upload-scan] skipped (too large ${(stat.size/1024/1024).toFixed(1)}MB): ${filePath}`);
+      }
+    } catch {
+      console.log(`[upload-scan] skipped (not found): ${filePath}`);
+    }
+  }
+  console.log(`[upload-scan] total files to upload: ${found.size}`);
+  return [...found];
+}
+
 class SessionManager {
   private sessions = new Map<string, ActiveSession>();
   private static readonly MAX_QUEUE_SIZE = 5;
@@ -73,6 +117,7 @@ class SessionManager {
 
     // Streaming state
     let responseBuffer = "";
+    let fullResponseText = ""; // full accumulated text for file detection
     let lastEditTime = 0;
     const stopRow = createStopButton(channelId);
     let currentMessage = await channel.send({
@@ -110,6 +155,11 @@ class SessionManager {
         options: {
           cwd: project.project_path,
           permissionMode: "default",
+          systemPrompt: {
+            type: "preset" as const,
+            preset: "claude_code" as const,
+            append: "When you produce output files (APKs, ZIPs, executables, PDFs, archives, etc.), just mention the full absolute file path in your response. The Discord bot will automatically detect and upload those files to the channel — you do not need to use any tool to attach or upload them yourself.",
+          },
           ...(resumeSessionId ? { resume: resumeSessionId } : {}),
 
           canUseTool: async (
@@ -287,6 +337,28 @@ class SessionManager {
           }
         }
 
+        // Capture tool results (Bash output, etc.) for file detection
+        if (message.type === "user" && "message" in message) {
+          const msg = (message as { message?: { content?: unknown } }).message;
+          const content = msg?.content;
+          if (Array.isArray(content)) {
+            for (const block of content as { type?: string; content?: unknown }[]) {
+              if (block.type === "tool_result") {
+                const inner = block.content;
+                if (typeof inner === "string") {
+                  fullResponseText += inner;
+                } else if (Array.isArray(inner)) {
+                  for (const b of inner as { type?: string; text?: string }[]) {
+                    if (b.type === "text" && typeof b.text === "string") {
+                      fullResponseText += b.text;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
         // Handle streaming text
         if (message.type === "assistant" && "content" in message) {
           const content = message.content;
@@ -294,6 +366,7 @@ class SessionManager {
             for (const block of content) {
               if ("text" in block && typeof block.text === "string") {
                 responseBuffer += block.text;
+                fullResponseText += block.text;
                 hasTextOutput = true;
               }
             }
@@ -348,6 +421,27 @@ class SessionManager {
             });
           } catch (e) {
             console.warn(`[complete] Failed to update completed button for ${channelId}:`, e instanceof Error ? e.message : e);
+          }
+
+          // Also include the result summary in the scan
+          if (resultMsg.result) fullResponseText += "\n" + resultMsg.result;
+
+          // Upload any output files Claude mentioned in its response
+          console.log(`[upload-scan] fullResponseText length: ${fullResponseText.length}`);
+          console.log(`[upload-scan] projectPath: ${project.project_path}`);
+          console.log(`[upload-scan] response snippet: ${fullResponseText.slice(0, 500)}`);
+          const filesToUpload = extractUploadableFiles(fullResponseText, project.project_path);
+          for (const filePath of filesToUpload) {
+            try {
+              const sizeMB = (fs.statSync(filePath).size / 1024 / 1024).toFixed(1);
+              await channel.send({
+                content: `📎 \`${path.basename(filePath)}\` (${sizeMB} MB)`,
+                files: [new AttachmentBuilder(filePath)],
+              });
+            } catch (e) {
+              console.warn(`[upload] Failed to upload ${filePath}:`, e instanceof Error ? e.message : e);
+              await channel.send(`⚠️ Could not upload \`${path.basename(filePath)}\` — file may be too large for this server.`);
+            }
           }
 
           // Send result embed

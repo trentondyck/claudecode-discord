@@ -1,5 +1,6 @@
 import { query, type Query } from "@anthropic-ai/claude-agent-sdk";
 import { randomUUID } from "node:crypto";
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { AttachmentBuilder, type TextChannel } from "discord.js";
@@ -49,6 +50,45 @@ const pendingQuestions = new Map<
 
 // Pending custom text inputs: channelId -> requestId
 const pendingCustomInputs = new Map<string, { requestId: string }>();
+
+function extractMeaningfulError(stderr: string): string {
+  if (!stderr.trim()) return "";
+  // Node.js unhandled exception format dumps the entire source line before the ^ and error message.
+  // Extract just the error type + message lines (e.g. "ReferenceError: crypto is not defined").
+  const lines = stderr.split("\n");
+  const errorLines = lines.filter(l =>
+    /^\s*(Error|TypeError|ReferenceError|SyntaxError|RangeError|URIError|EvalError):/i.test(l) ||
+    /^\s*at /.test(l)
+  );
+  if (errorLines.length > 0) {
+    // First error line + up to 3 stack frames
+    const summary = errorLines.slice(0, 4).join("\n").trim();
+    return summary.length > 500 ? summary.slice(0, 500) + "…" : summary;
+  }
+  // Fallback: last 300 chars (error is usually at the end)
+  const trimmed = stderr.trim();
+  return trimmed.length > 300 ? "…" + trimmed.slice(-300) : trimmed;
+}
+
+function findClaudeExecutable(): string | undefined {
+  const candidates = [
+    process.env.CLAUDE_EXECUTABLE,
+    (() => { try { return execSync("which claude", { encoding: "utf8", stdio: ["pipe","pipe","ignore"] }).trim(); } catch { return undefined; } })(),
+    `${process.env.HOME}/.local/bin/claude`,
+    "/usr/local/bin/claude",
+  ];
+  for (const p of candidates) {
+    if (p && fs.existsSync(p)) return p;
+  }
+  return undefined;
+}
+
+const CLAUDE_EXECUTABLE = findClaudeExecutable();
+if (CLAUDE_EXECUTABLE) {
+  console.log(`[claude] Using executable: ${CLAUDE_EXECUTABLE}`);
+} else {
+  console.warn("[claude] No claude executable found — SDK will use bundled cli.js (may fail on Node <18.13)");
+}
 
 const UPLOADABLE_EXTS = new Set([
   ".apk", ".aab", ".ipa",
@@ -149,6 +189,8 @@ class SessionManager {
       }
     }, 15_000);
 
+    let stderrOutput = "";
+
     try {
       const queryInstance = query({
         prompt,
@@ -159,6 +201,11 @@ class SessionManager {
             type: "preset" as const,
             preset: "claude_code" as const,
             append: "When you produce output files (APKs, ZIPs, executables, PDFs, archives, etc.), just mention the full absolute file path in your response. The Discord bot will automatically detect and upload those files to the channel — you do not need to use any tool to attach or upload them yourself.",
+          },
+          ...(CLAUDE_EXECUTABLE ? { pathToClaudeCodeExecutable: CLAUDE_EXECUTABLE } : {}),
+          stderr: (data: string) => {
+            stderrOutput += data;
+            console.error(`[claude-stderr][${channelId}]`, data.trimEnd());
           },
           ...(resumeSessionId ? { resume: resumeSessionId } : {}),
 
@@ -478,7 +525,10 @@ class SessionManager {
           errMsg = `API Error ${jsonMatch[1]}. Please try again later.`;
         }
       } else if (rawMsg.includes("process exited with code")) {
-        errMsg = `${rawMsg}. The server may be temporarily unavailable — please try again later.`;
+        const stderrDetail = extractMeaningfulError(stderrOutput);
+        errMsg = stderrDetail
+          ? `${rawMsg}: ${stderrDetail}`
+          : `${rawMsg}. Check bot logs for details.`;
       }
 
       await channel.send(`❌ ${errMsg}`);

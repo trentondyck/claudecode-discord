@@ -197,6 +197,8 @@ class SessionManager {
         options: {
           cwd: project.project_path,
           permissionMode: "default",
+          settingSources: ["user", "project"],
+          extraArgs: { chrome: null },
           systemPrompt: {
             type: "preset" as const,
             preset: "claude_code" as const,
@@ -227,10 +229,13 @@ class SessionManager {
               WebFetch: L("Fetching URL", "URL 가져오는 중"),
               TodoWrite: L("Updating tasks", "작업 업데이트 중"),
             };
+            const chromeToolLabel = toolName.startsWith("mcp__claude-in-chrome__")
+              ? L(`Browser: ${toolName.replace("mcp__claude-in-chrome__", "")}`, `브라우저: ${toolName.replace("mcp__claude-in-chrome__", "")}`)
+              : undefined;
             const filePath = typeof input.file_path === "string"
               ? ` \`${(input.file_path as string).split(/[\\/]/).pop()}\``
               : "";
-            lastActivity = `${toolLabels[toolName] ?? `Using ${toolName}`}${filePath}`;
+            lastActivity = `${chromeToolLabel ?? toolLabels[toolName] ?? `Using ${toolName}`}${filePath}`;
 
             // Update status message if no text output yet
             if (!hasTextOutput) {
@@ -309,9 +314,9 @@ class SessionManager {
               };
             }
 
-            // Auto-approve read-only tools
+            // Auto-approve read-only tools and chrome browser tools
             const readOnlyTools = ["Read", "Glob", "Grep", "WebSearch", "WebFetch", "TodoWrite"];
-            if (readOnlyTools.includes(toolName)) {
+            if (readOnlyTools.includes(toolName) || toolName.startsWith("mcp__claude-in-chrome__")) {
               return { behavior: "allow" as const, updatedInput: input };
             }
 

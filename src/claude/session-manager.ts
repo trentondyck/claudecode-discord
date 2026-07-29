@@ -190,6 +190,7 @@ class SessionManager {
     }, 15_000);
 
     let stderrOutput = "";
+    let retryWithoutResume = false;
 
     try {
       const queryInstance = query({
@@ -530,14 +531,22 @@ class SessionManager {
           errMsg = `API Error ${jsonMatch[1]}. Please try again later.`;
         }
       } else if (rawMsg.includes("process exited with code")) {
-        const stderrDetail = extractMeaningfulError(stderrOutput);
-        errMsg = stderrDetail
-          ? `${rawMsg}: ${stderrDetail}`
-          : `${rawMsg}. Check bot logs for details.`;
+        if (resumeSessionId) {
+          // Stale/expired session ID — clear it and retry fresh
+          retryWithoutResume = true;
+          upsertSession(dbId, channelId, null, "offline");
+        } else {
+          const stderrDetail = extractMeaningfulError(stderrOutput);
+          errMsg = stderrDetail
+            ? `${rawMsg}: ${stderrDetail}`
+            : `${rawMsg}. Check bot logs for details.`;
+        }
       }
 
-      await channel.send(`❌ ${errMsg}`);
-      updateSessionStatus(channelId, "offline");
+      if (!retryWithoutResume) {
+        await channel.send(`❌ ${errMsg}`);
+        updateSessionStatus(channelId, "offline");
+      }
     } finally {
       clearInterval(heartbeatInterval);
       this.sessions.delete(channelId);
@@ -550,6 +559,18 @@ class SessionManager {
         if (entry.channelId === channelId) pendingQuestions.delete(id);
       }
       pendingCustomInputs.delete(channelId);
+
+      // If session was stale, retry the same message without resume
+      if (retryWithoutResume) {
+        try {
+          await currentMessage.edit({
+            content: L("⚠️ Session expired. Starting fresh...", "⚠️ 세션 만료. 새로 시작합니다..."),
+            components: [],
+          });
+        } catch { /* ignore edit errors */ }
+        await this.sendMessage(channel, prompt);
+        return;
+      }
 
       // Process next queued message if any
       const queue = this.messageQueue.get(channelId);
